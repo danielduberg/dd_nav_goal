@@ -7,7 +7,7 @@
 
 #include <QComboBox>
 
-namespace nav_goal
+namespace dd_nav_goal
 {
 class DDQComboBox : public QComboBox
 {

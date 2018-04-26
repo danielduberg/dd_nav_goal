@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(nav_goal)
+project(dd_nav_goal)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
@@ -127,7 +127,7 @@ add_definitions(-DQT_NO_KEYWORDS)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
  INCLUDE_DIRS include
-#  LIBRARIES nav_goal
+#  LIBRARIES dd_nav_goal
 #  CATKIN_DEPENDS other_catkin_pkg
 #  DEPENDS system_lib
 )
@@ -146,13 +146,13 @@ include_directories(
 ## Here we specify the list of source files.
 ## The generated MOC files are included automatically as headers.
 set(SOURCE_FILES
-  src/nav_goal.cpp
+  src/dd_nav_goal.cpp
   src/dd_q_combo_box.cpp
 )
 
 set(HEADER_FILES
-  include/nav_goal/nav_goal.h
-  include/nav_goal/dd_q_combo_box.h
+  include/dd_nav_goal/dd_nav_goal.h
+  include/dd_nav_goal/dd_q_combo_box.h
 )
 
 ## Declare a C++ library
@@ -166,7 +166,7 @@ add_library(${PROJECT_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/nav_goal_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/dd_nav_goal_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -211,7 +211,7 @@ install(TARGETS ${PROJECT_NAME}
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 install(FILES
-  nav_goal.xml
+  dd_nav_goal.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 
@@ -220,7 +220,7 @@ install(FILES
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_nav_goal.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_dd_nav_goal.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()

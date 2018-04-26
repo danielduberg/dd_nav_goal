@@ -1,4 +1,4 @@
-#include <nav_goal/nav_goal.h>
+#include <dd_nav_goal/dd_nav_goal.h>
 
 #include <QPainter>
 #include <QLineEdit>
@@ -8,9 +8,9 @@
 #include <QTimer>
 #include <QSlider>
 
-namespace nav_goal
+namespace dd_nav_goal
 {
-NavGoalPanel::NavGoalPanel(QWidget* parent) : rviz::Panel(parent)
+DDNavGoalPanel::DDNavGoalPanel(QWidget* parent) : rviz::Panel(parent)
 {
   nav_goal_2d_in_topic_menu_ = new DDQComboBox;
 
@@ -68,7 +68,7 @@ NavGoalPanel::NavGoalPanel(QWidget* parent) : rviz::Panel(parent)
           SLOT(updateMaxZValue()));
 }
 
-void NavGoalPanel::load(const rviz::Config& config)
+void DDNavGoalPanel::load(const rviz::Config& config)
 {
   rviz::Panel::load(config);
   QString topic_in;
@@ -110,7 +110,7 @@ void NavGoalPanel::load(const rviz::Config& config)
   }
 }
 
-void NavGoalPanel::save(rviz::Config config) const
+void DDNavGoalPanel::save(rviz::Config config) const
 {
   rviz::Panel::save(config);
   config.mapSetValue("nav_goal_2d_in_topic", nav_goal_2d_in_topic_);
@@ -120,14 +120,14 @@ void NavGoalPanel::save(rviz::Config config) const
   config.mapSetValue("z_slider_max", z_slider_->maximum());
 }
 
-void NavGoalPanel::updateTopic()
+void DDNavGoalPanel::updateTopic()
 {
   setTopic(nav_goal_2d_in_topic_menu_->itemText(
                nav_goal_2d_in_topic_menu_->currentIndex()),
            nav_goal_3d_out_topic_editor_->text());
 }
 
-void NavGoalPanel::setTopic(const QString& new_in_topic,
+void DDNavGoalPanel::setTopic(const QString& new_in_topic,
                             const QString& new_out_topic)
 {
   QString new_out_topic_temp = new_out_topic;
@@ -157,7 +157,7 @@ void NavGoalPanel::setTopic(const QString& new_in_topic,
     {
       nav_goal_2d_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
           nav_goal_2d_in_topic_.toStdString(), 1,
-          &NavGoalPanel::navGoal2DCallback, this);
+          &DDNavGoalPanel::navGoal2DCallback, this);
       try
       {
         nav_goal_3d_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(
@@ -181,7 +181,7 @@ void NavGoalPanel::setTopic(const QString& new_in_topic,
   // TODO: Disable slider?
 }
 
-void NavGoalPanel::navGoal2DCallback(
+void DDNavGoalPanel::navGoal2DCallback(
     const geometry_msgs::PoseStamped::ConstPtr& goal)
 {
   geometry_msgs::PoseStamped new_goal = *goal;
@@ -189,21 +189,21 @@ void NavGoalPanel::navGoal2DCallback(
   nav_goal_3d_pub_.publish(new_goal);
 }
 
-void NavGoalPanel::updateSlider()
+void DDNavGoalPanel::updateSlider()
 {
   current_z_value_->setValue(((double)z_slider_->value()) / Z_VALUE_PRECISION);
   min_z_value_->setMaximum(current_z_value_->value());
   max_z_value_->setMinimum(current_z_value_->value());
 }
 
-void NavGoalPanel::updateCurrentZValue()
+void DDNavGoalPanel::updateCurrentZValue()
 {
   z_slider_->setValue(current_z_value_->value() * Z_VALUE_PRECISION);
   min_z_value_->setMaximum(current_z_value_->value());
   max_z_value_->setMinimum(current_z_value_->value());
 }
 
-void NavGoalPanel::updateMinZValue()
+void DDNavGoalPanel::updateMinZValue()
 {
   z_slider_->setMinimum(min_z_value_->value() * Z_VALUE_PRECISION);
   int abs_diff = std::abs(z_slider_->maximum() - z_slider_->minimum());
@@ -211,7 +211,7 @@ void NavGoalPanel::updateMinZValue()
   current_z_value_->setMinimum(min_z_value_->value());
 }
 
-void NavGoalPanel::updateMaxZValue()
+void DDNavGoalPanel::updateMaxZValue()
 {
   z_slider_->setMaximum(max_z_value_->value() * Z_VALUE_PRECISION);
   int abs_diff = std::abs(z_slider_->maximum() - z_slider_->minimum());
@@ -224,4 +224,4 @@ void NavGoalPanel::updateMaxZValue()
 // loadable by pluginlib::ClassLoader must have these two lines
 // compiled in its .cpp file, outside of any namespace scope.
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(nav_goal::NavGoalPanel, rviz::Panel)
+PLUGINLIB_EXPORT_CLASS(dd_nav_goal::DDNavGoalPanel, rviz::Panel)

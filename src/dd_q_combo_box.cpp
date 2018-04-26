@@ -1,6 +1,6 @@
-#include <nav_goal/dd_q_combo_box.h>
+#include <dd_nav_goal/dd_q_combo_box.h>
 
-namespace nav_goal
+namespace dd_nav_goal
 {
 
 struct LexicalTopicInfo

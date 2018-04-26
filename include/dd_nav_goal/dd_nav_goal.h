@@ -1,5 +1,5 @@
-#ifndef NAV_GOAL_PANEL_H
-#define NAV_GOAL_PANEL_H
+#ifndef DD_NAV_GOAL_PANEL_H
+#define DD_NAV_GOAL_PANEL_H
 
 #ifndef Q_MOC_RUN
 #include <ros/ros.h>
@@ -13,20 +13,20 @@
 
 #include <geometry_msgs/PoseStamped.h>
 
-#include <nav_goal/dd_q_combo_box.h>
+#include <dd_nav_goal/dd_q_combo_box.h>
 
 class QLineEdit;
 
-namespace nav_goal
+namespace dd_nav_goal
 {
-class NavGoalPanel : public rviz::Panel
+class DDNavGoalPanel : public rviz::Panel
 {
   const static int Z_VALUE_PRECISION = 1000; // 3 decimal precision
   const static int NUM_TICK_MARKS = 11;      // 11 tick marks on z-slider
 
   Q_OBJECT
 public:
-  NavGoalPanel(QWidget* parent = 0);
+  DDNavGoalPanel(QWidget* parent = 0);
 
   virtual void load(const rviz::Config& config);
   virtual void save(rviz::Config config) const;
@@ -74,4 +74,4 @@ protected:
 };
 }
 
-#endif // NAV_GOAL_PANEL_H
+#endif // DD_NAV_GOAL_PANEL_H
