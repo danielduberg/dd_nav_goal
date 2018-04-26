@@ -147,10 +147,12 @@ include_directories(
 ## The generated MOC files are included automatically as headers.
 set(SOURCE_FILES
   src/nav_goal.cpp
+  src/dd_q_combo_box.cpp
 )
 
 set(HEADER_FILES
   include/nav_goal/nav_goal.h
+  include/nav_goal/dd_q_combo_box.h
 )
 
 ## Declare a C++ library

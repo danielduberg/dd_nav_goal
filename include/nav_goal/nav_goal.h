@@ -6,10 +6,14 @@
 #include <rviz/panel.h>
 #endif
 
+#include <QGridLayout>
 #include <QSlider>
 #include <QDoubleSpinBox>
+#include <QComboBox>
 
 #include <geometry_msgs/PoseStamped.h>
+
+#include <nav_goal/dd_q_combo_box.h>
 
 class QLineEdit;
 
@@ -17,7 +21,8 @@ namespace nav_goal
 {
 class NavGoalPanel : public rviz::Panel
 {
-  int Z_VALUE_PRECISION = 1000; // 3 decimal precision
+  const static int Z_VALUE_PRECISION = 1000; // 3 decimal precision
+  const static int NUM_TICK_MARKS = 11;      // 11 tick marks on z-slider
 
   Q_OBJECT
 public:
@@ -45,8 +50,10 @@ protected Q_SLOTS:
   void navGoal2DCallback(const geometry_msgs::PoseStamped::ConstPtr& goal);
 
 protected:
+  QGridLayout* layout;
+
+  DDQComboBox* nav_goal_2d_in_topic_menu_;
   // One-line text editor for entering the outgoing ROS topic name.
-  QLineEdit* nav_goal_2d_in_topic_editor_;
   QLineEdit* nav_goal_3d_out_topic_editor_;
 
   // The current name of the output topic.
