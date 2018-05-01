@@ -49,6 +49,10 @@ protected Q_SLOTS:
 
   void navGoal2DCallback(const geometry_msgs::PoseStamped::ConstPtr& goal);
 
+  void posePublish(const ros::TimerEvent& event);
+
+  void updateFrequency();
+
 protected:
   QGridLayout* layout;
 
@@ -65,8 +69,15 @@ protected:
   QDoubleSpinBox* current_z_value_;
   QSlider* z_slider_;
 
+  QDoubleSpinBox* frequency_;
+
   // The ROS node handle.
   ros::NodeHandle nh_;
+
+  bool has_recieved_pose_;
+  geometry_msgs::PoseStamped pose_;
+
+  ros::Timer publish_timer_;
 
   ros::Subscriber nav_goal_2d_sub_;
 

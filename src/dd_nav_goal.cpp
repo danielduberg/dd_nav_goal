@@ -10,7 +10,8 @@
 
 namespace dd_nav_goal
 {
-DDNavGoalPanel::DDNavGoalPanel(QWidget* parent) : rviz::Panel(parent)
+DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
+    : rviz::Panel(parent), has_recieved_pose_(false)
 {
   nav_goal_2d_in_topic_menu_ = new DDQComboBox;
 
@@ -40,6 +41,15 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent) : rviz::Panel(parent)
   min_z_value_->setMaximum(std::numeric_limits<double>::infinity());
   min_z_value_->setSingleStep(0.5);
 
+  frequency_ = new QDoubleSpinBox;
+  frequency_->setMinimum(0);
+  frequency_->setMaximum(std::numeric_limits<double>::infinity());
+  frequency_->setSingleStep(5);
+  frequency_->setValue(10);
+
+  publish_timer_ = nh_.createTimer(ros::Rate(frequency_->value()),
+                                   &DDNavGoalPanel::posePublish, this);
+
   layout = new QGridLayout();
   layout->addWidget(new QLabel("Input 2D Nav Goal Topic:"), 0, 0, 1, 1);
   layout->addWidget(nav_goal_2d_in_topic_menu_, 0, 1, 1, 3);
@@ -52,6 +62,8 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent) : rviz::Panel(parent)
   layout->addWidget(current_z_value_, 5, 1);
   layout->addWidget(new QLabel("Min altitude:"), 8, 0);
   layout->addWidget(min_z_value_, 8, 2, 1, 2);
+  layout->addWidget(new QLabel("Frequency:"), 9, 0);
+  layout->addWidget(frequency_, 9, 1);
   setLayout(layout);
 
   // Next we make signal/slot connections.
@@ -66,6 +78,8 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent) : rviz::Panel(parent)
           SLOT(updateMinZValue()));
   connect(max_z_value_, SIGNAL(valueChanged(double)), this,
           SLOT(updateMaxZValue()));
+  connect(frequency_, SIGNAL(valueChanged(double)), this,
+          SLOT(updateFrequency()));
 }
 
 void DDNavGoalPanel::load(const rviz::Config& config)
@@ -108,6 +122,13 @@ void DDNavGoalPanel::load(const rviz::Config& config)
     current_z_value_->setValue(slider_value / Z_VALUE_PRECISION);
     z_slider_->setValue(slider_value);
   }
+
+  float frequency;
+  if (config.mapGetFloat("frequency", &frequency))
+  {
+    frequency_->setValue(frequency);
+    updateFrequency();
+  }
 }
 
 void DDNavGoalPanel::save(rviz::Config config) const
@@ -118,6 +139,7 @@ void DDNavGoalPanel::save(rviz::Config config) const
   config.mapSetValue("z_slider_value", z_slider_->value());
   config.mapSetValue("z_slider_min", z_slider_->minimum());
   config.mapSetValue("z_slider_max", z_slider_->maximum());
+  config.mapSetValue("frequency", frequency_->value());
 }
 
 void DDNavGoalPanel::updateTopic()
@@ -128,7 +150,7 @@ void DDNavGoalPanel::updateTopic()
 }
 
 void DDNavGoalPanel::setTopic(const QString& new_in_topic,
-                            const QString& new_out_topic)
+                              const QString& new_out_topic)
 {
   QString new_out_topic_temp = new_out_topic;
   if (new_out_topic_temp[0] != QChar('/'))
@@ -149,7 +171,8 @@ void DDNavGoalPanel::setTopic(const QString& new_in_topic,
     else if (nav_goal_3d_out_topic_ == nav_goal_2d_in_topic_)
     {
       ROS_WARN("Nav Goal: The two topics shall not be the same!");
-      nav_goal_3d_out_topic_editor_->setText("The two topics shall not be the same!");
+      nav_goal_3d_out_topic_editor_->setText(
+          "The two topics shall not be the same!");
       nav_goal_2d_sub_.shutdown();
       nav_goal_3d_pub_.shutdown();
     }
@@ -167,7 +190,6 @@ void DDNavGoalPanel::setTopic(const QString& new_in_topic,
       {
         ROS_WARN("Nav Goal: %s", e.what());
       }
-
     }
     // rviz::Panel defines the configChanged() signal.  Emitting it
     // tells RViz that something in this panel has changed that will
@@ -184,9 +206,19 @@ void DDNavGoalPanel::setTopic(const QString& new_in_topic,
 void DDNavGoalPanel::navGoal2DCallback(
     const geometry_msgs::PoseStamped::ConstPtr& goal)
 {
-  geometry_msgs::PoseStamped new_goal = *goal;
-  new_goal.pose.position.z = current_z_value_->value();
-  nav_goal_3d_pub_.publish(new_goal);
+  pose_ = *goal;
+  pose_.pose.position.z = current_z_value_->value();
+  nav_goal_3d_pub_.publish(pose_);
+  has_recieved_pose_ = true;
+}
+
+void DDNavGoalPanel::posePublish(const ros::TimerEvent& event)
+{
+  if (has_recieved_pose_)
+  {
+    pose_.header.stamp = ros::Time::now();
+    nav_goal_3d_pub_.publish(pose_);
+  }
 }
 
 void DDNavGoalPanel::updateSlider()
@@ -194,6 +226,8 @@ void DDNavGoalPanel::updateSlider()
   current_z_value_->setValue(((double)z_slider_->value()) / Z_VALUE_PRECISION);
   min_z_value_->setMaximum(current_z_value_->value());
   max_z_value_->setMinimum(current_z_value_->value());
+  // Update pose such that it is correct when republished
+  pose_.pose.position.z = current_z_value_->value();
 }
 
 void DDNavGoalPanel::updateCurrentZValue()
@@ -201,6 +235,8 @@ void DDNavGoalPanel::updateCurrentZValue()
   z_slider_->setValue(current_z_value_->value() * Z_VALUE_PRECISION);
   min_z_value_->setMaximum(current_z_value_->value());
   max_z_value_->setMinimum(current_z_value_->value());
+  // Update pose such that it is correct when republished
+  pose_.pose.position.z = current_z_value_->value();
 }
 
 void DDNavGoalPanel::updateMinZValue()
@@ -217,6 +253,19 @@ void DDNavGoalPanel::updateMaxZValue()
   int abs_diff = std::abs(z_slider_->maximum() - z_slider_->minimum());
   z_slider_->setTickInterval(abs_diff / (NUM_TICK_MARKS - 1));
   current_z_value_->setMaximum(max_z_value_->value());
+}
+
+void DDNavGoalPanel::updateFrequency()
+{
+  if (frequency_->value() == 0)
+  {
+    publish_timer_.stop();
+  }
+  else
+  {
+    publish_timer_.start();
+    publish_timer_.setPeriod(ros::Duration(1.0 / frequency_->value()), false);
+  }
 }
 }
 
