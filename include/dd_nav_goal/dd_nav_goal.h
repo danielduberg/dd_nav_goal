@@ -10,6 +10,7 @@
 #include <QSlider>
 #include <QDoubleSpinBox>
 #include <QComboBox>
+#include <QLabel>
 
 #include <geometry_msgs/PoseStamped.h>
 
@@ -52,6 +53,10 @@ protected Q_SLOTS:
   void posePublish(const ros::TimerEvent& event);
 
   void updateFrequency();
+  
+  void px4PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+  
+  void slamPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
 
 protected:
   QGridLayout* layout;
@@ -68,6 +73,9 @@ protected:
   QDoubleSpinBox* max_z_value_;
   QDoubleSpinBox* current_z_value_;
   QSlider* z_slider_;
+  
+  QLabel* px4_altitude_;
+  QLabel* slam_altitude_;
 
   QDoubleSpinBox* frequency_;
 
@@ -80,6 +88,8 @@ protected:
   ros::Timer publish_timer_;
 
   ros::Subscriber nav_goal_2d_sub_;
+  ros::Subscriber px4_pose_sub_;
+  ros::Subscriber slam_pose_sub_;
 
   ros::Publisher nav_goal_3d_pub_;
 };

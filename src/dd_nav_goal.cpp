@@ -4,9 +4,9 @@
 #include <QLineEdit>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QTimer>
 #include <QSlider>
+#include <QString>
 
 namespace dd_nav_goal
 {
@@ -40,6 +40,10 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
   min_z_value_->setMinimum(-std::numeric_limits<double>::infinity());
   min_z_value_->setMaximum(std::numeric_limits<double>::infinity());
   min_z_value_->setSingleStep(0.5);
+  
+  px4_altitude_ = new QLabel;
+  
+  slam_altitude_ = new QLabel;
 
   frequency_ = new QDoubleSpinBox;
   frequency_->setMinimum(0);
@@ -58,8 +62,12 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
   layout->addWidget(new QLabel("Max altitude:"), 2, 0);
   layout->addWidget(max_z_value_, 2, 2, 1, 2);
   layout->addWidget(z_slider_, 3, 2, 5, 1);
-  layout->addWidget(new QLabel("Current altitude:"), 5, 0);
+  layout->addWidget(new QLabel("Setpoint altitude:"), 5, 0);
   layout->addWidget(current_z_value_, 5, 1);
+  layout->addWidget(new QLabel("PX4 altitude:"), 6, 0);
+  layout->addWidget(px4_altitude_, 6, 1);
+  layout->addWidget(new QLabel("SLAM altitude:"), 7, 0);
+  layout->addWidget(slam_altitude_, 7, 1);
   layout->addWidget(new QLabel("Min altitude:"), 8, 0);
   layout->addWidget(min_z_value_, 8, 2, 1, 2);
   layout->addWidget(new QLabel("Frequency:"), 9, 0);
@@ -80,6 +88,14 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
           SLOT(updateMaxZValue()));
   connect(frequency_, SIGNAL(valueChanged(double)), this,
           SLOT(updateFrequency()));
+          
+  px4_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
+          "/mavros/local_position/pose", 1,
+          &DDNavGoalPanel::px4PoseCallback, this);
+          
+  slam_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
+          "/mavros/vision_pose/pose", 1,
+          &DDNavGoalPanel::slamPoseCallback, this);
 }
 
 void DDNavGoalPanel::load(const rviz::Config& config)
@@ -266,6 +282,16 @@ void DDNavGoalPanel::updateFrequency()
     publish_timer_.start();
     publish_timer_.setPeriod(ros::Duration(1.0 / frequency_->value()), false);
   }
+}
+
+void DDNavGoalPanel::px4PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+{
+  px4_altitude_->setText(QString::number(msg->pose.position.z, 'f', 2));
+}
+
+void DDNavGoalPanel::slamPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+{
+  slam_altitude_->setText(QString::number(msg->pose.position.z, 'f', 2));
 }
 }
 
