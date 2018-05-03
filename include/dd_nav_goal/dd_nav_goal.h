@@ -11,6 +11,7 @@
 #include <QDoubleSpinBox>
 #include <QComboBox>
 #include <QLabel>
+#include <QPushButton>
 
 #include <geometry_msgs/PoseStamped.h>
 
@@ -38,6 +39,8 @@ protected Q_SLOTS:
 
   void updateTopic();
 
+  void posePublish(geometry_msgs::PoseStamped& pose);
+
   void updateSlider();
 
   void updateCurrentZValue();
@@ -49,14 +52,14 @@ protected Q_SLOTS:
   void setTopic(const QString& new_in_topic, const QString& new_out_topic);
 
   void navGoal2DCallback(const geometry_msgs::PoseStamped::ConstPtr& goal);
-
-  void posePublish(const ros::TimerEvent& event);
-
-  void updateFrequency();
   
   void px4PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
   
   void slamPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg);
+
+  void republishSetpoint();
+
+  void cancelSetpoint();
 
 protected:
   QGridLayout* layout;
@@ -73,11 +76,12 @@ protected:
   QDoubleSpinBox* max_z_value_;
   QDoubleSpinBox* current_z_value_;
   QSlider* z_slider_;
+
+  QPushButton* republish_setpoint_;
+  QPushButton* cancel_setpoint_;
   
   QLabel* px4_altitude_;
   QLabel* slam_altitude_;
-
-  QDoubleSpinBox* frequency_;
 
   // The ROS node handle.
   ros::NodeHandle nh_;
@@ -85,13 +89,12 @@ protected:
   bool has_recieved_pose_;
   geometry_msgs::PoseStamped pose_;
 
-  ros::Timer publish_timer_;
-
   ros::Subscriber nav_goal_2d_sub_;
   ros::Subscriber px4_pose_sub_;
   ros::Subscriber slam_pose_sub_;
 
   ros::Publisher nav_goal_3d_pub_;
+  ros::Publisher cancel_setpoint_pub_;
 };
 }
 

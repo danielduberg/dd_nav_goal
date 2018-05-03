@@ -40,19 +40,22 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
   min_z_value_->setMinimum(-std::numeric_limits<double>::infinity());
   min_z_value_->setMaximum(std::numeric_limits<double>::infinity());
   min_z_value_->setSingleStep(0.5);
-  
+
+  republish_setpoint_ = new QPushButton;
+  republish_setpoint_->setText("Start");
+  republish_setpoint_->setStyleSheet(
+      QString("color: %1").arg(QColor(Qt::green).name()));
+  republish_setpoint_->setDisabled(true);
+
+  cancel_setpoint_ = new QPushButton;
+  cancel_setpoint_->setText("Stop");
+  cancel_setpoint_->setStyleSheet(
+      QString("color: %1").arg(QColor(Qt::red).name()));
+  cancel_setpoint_->setDisabled(true);
+
   px4_altitude_ = new QLabel;
-  
+
   slam_altitude_ = new QLabel;
-
-  frequency_ = new QDoubleSpinBox;
-  frequency_->setMinimum(0);
-  frequency_->setMaximum(std::numeric_limits<double>::infinity());
-  frequency_->setSingleStep(5);
-  frequency_->setValue(10);
-
-  publish_timer_ = nh_.createTimer(ros::Rate(frequency_->value()),
-                                   &DDNavGoalPanel::posePublish, this);
 
   layout = new QGridLayout();
   layout->addWidget(new QLabel("Input 2D Nav Goal Topic:"), 0, 0, 1, 1);
@@ -70,8 +73,8 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
   layout->addWidget(slam_altitude_, 7, 1);
   layout->addWidget(new QLabel("Min altitude:"), 8, 0);
   layout->addWidget(min_z_value_, 8, 2, 1, 2);
-  layout->addWidget(new QLabel("Frequency:"), 9, 0);
-  layout->addWidget(frequency_, 9, 1);
+  layout->addWidget(cancel_setpoint_, 9, 1);
+  layout->addWidget(republish_setpoint_, 9, 2);
   setLayout(layout);
 
   // Next we make signal/slot connections.
@@ -86,16 +89,15 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
           SLOT(updateMinZValue()));
   connect(max_z_value_, SIGNAL(valueChanged(double)), this,
           SLOT(updateMaxZValue()));
-  connect(frequency_, SIGNAL(valueChanged(double)), this,
-          SLOT(updateFrequency()));
-          
+  connect(republish_setpoint_, SIGNAL(released()), this,
+          SLOT(republishSetpoint()));
+  connect(cancel_setpoint_, SIGNAL(released()), this, SLOT(cancelSetpoint()));
+
   px4_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
-          "/mavros/local_position/pose", 1,
-          &DDNavGoalPanel::px4PoseCallback, this);
-          
+      "/mavros/local_position/pose", 1, &DDNavGoalPanel::px4PoseCallback, this);
+
   slam_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
-          "/mavros/vision_pose/pose", 1,
-          &DDNavGoalPanel::slamPoseCallback, this);
+      "/mavros/vision_pose/pose", 1, &DDNavGoalPanel::slamPoseCallback, this);
 }
 
 void DDNavGoalPanel::load(const rviz::Config& config)
@@ -138,13 +140,6 @@ void DDNavGoalPanel::load(const rviz::Config& config)
     current_z_value_->setValue(slider_value / Z_VALUE_PRECISION);
     z_slider_->setValue(slider_value);
   }
-
-  float frequency;
-  if (config.mapGetFloat("frequency", &frequency))
-  {
-    frequency_->setValue(frequency);
-    updateFrequency();
-  }
 }
 
 void DDNavGoalPanel::save(rviz::Config config) const
@@ -155,7 +150,6 @@ void DDNavGoalPanel::save(rviz::Config config) const
   config.mapSetValue("z_slider_value", z_slider_->value());
   config.mapSetValue("z_slider_min", z_slider_->minimum());
   config.mapSetValue("z_slider_max", z_slider_->maximum());
-  config.mapSetValue("frequency", frequency_->value());
 }
 
 void DDNavGoalPanel::updateTopic()
@@ -179,10 +173,13 @@ void DDNavGoalPanel::setTopic(const QString& new_in_topic,
   {
     nav_goal_2d_in_topic_ = new_in_topic;
     nav_goal_3d_out_topic_ = new_out_topic_temp;
-    if (nav_goal_3d_out_topic_ == "" || nav_goal_2d_in_topic_ == "")
+    if (nav_goal_3d_out_topic_ == "/" || nav_goal_2d_in_topic_ == "")
     {
       nav_goal_2d_sub_.shutdown();
       nav_goal_3d_pub_.shutdown();
+      republish_setpoint_->setDisabled(true);
+      cancel_setpoint_->setDisabled(true);
+      cancel_setpoint_pub_.shutdown();
     }
     else if (nav_goal_3d_out_topic_ == nav_goal_2d_in_topic_)
     {
@@ -191,16 +188,23 @@ void DDNavGoalPanel::setTopic(const QString& new_in_topic,
           "The two topics shall not be the same!");
       nav_goal_2d_sub_.shutdown();
       nav_goal_3d_pub_.shutdown();
+      republish_setpoint_->setDisabled(true);
+      cancel_setpoint_->setDisabled(true);
+      cancel_setpoint_pub_.shutdown();
     }
     else
     {
       nav_goal_2d_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
-          nav_goal_2d_in_topic_.toStdString(), 1,
+          nav_goal_2d_in_topic_.toStdString(), 2,
           &DDNavGoalPanel::navGoal2DCallback, this);
       try
       {
         nav_goal_3d_pub_ = nh_.advertise<geometry_msgs::PoseStamped>(
-            nav_goal_3d_out_topic_.toStdString(), 1);
+            nav_goal_3d_out_topic_.toStdString(), 2);
+        cancel_setpoint_pub_ = nh_.advertise<std_msgs::Header>(
+            nav_goal_3d_out_topic_.toStdString() + "/cancel", 2);
+        republish_setpoint_->setDisabled(false);
+        cancel_setpoint_->setDisabled(false);
       }
       catch (ros::InvalidNameException e)
       {
@@ -222,18 +226,19 @@ void DDNavGoalPanel::setTopic(const QString& new_in_topic,
 void DDNavGoalPanel::navGoal2DCallback(
     const geometry_msgs::PoseStamped::ConstPtr& goal)
 {
+  has_recieved_pose_ = true;
   pose_ = *goal;
   pose_.pose.position.z = current_z_value_->value();
   nav_goal_3d_pub_.publish(pose_);
-  has_recieved_pose_ = true;
 }
 
-void DDNavGoalPanel::posePublish(const ros::TimerEvent& event)
+void DDNavGoalPanel::posePublish(geometry_msgs::PoseStamped& pose)
 {
   if (has_recieved_pose_)
   {
-    pose_.header.stamp = ros::Time::now();
-    nav_goal_3d_pub_.publish(pose_);
+    // Update stamp
+    pose.header.stamp = ros::Time::now();
+    nav_goal_3d_pub_.publish(pose);
   }
 }
 
@@ -244,6 +249,7 @@ void DDNavGoalPanel::updateSlider()
   max_z_value_->setMinimum(current_z_value_->value());
   // Update pose such that it is correct when republished
   pose_.pose.position.z = current_z_value_->value();
+  posePublish(pose_);
 }
 
 void DDNavGoalPanel::updateCurrentZValue()
@@ -253,6 +259,7 @@ void DDNavGoalPanel::updateCurrentZValue()
   max_z_value_->setMinimum(current_z_value_->value());
   // Update pose such that it is correct when republished
   pose_.pose.position.z = current_z_value_->value();
+  posePublish(pose_);
 }
 
 void DDNavGoalPanel::updateMinZValue()
@@ -271,27 +278,25 @@ void DDNavGoalPanel::updateMaxZValue()
   current_z_value_->setMaximum(max_z_value_->value());
 }
 
-void DDNavGoalPanel::updateFrequency()
-{
-  if (frequency_->value() == 0)
-  {
-    publish_timer_.stop();
-  }
-  else
-  {
-    publish_timer_.start();
-    publish_timer_.setPeriod(ros::Duration(1.0 / frequency_->value()), false);
-  }
-}
-
-void DDNavGoalPanel::px4PoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+void DDNavGoalPanel::px4PoseCallback(
+    const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
   px4_altitude_->setText(QString::number(msg->pose.position.z, 'f', 2));
 }
 
-void DDNavGoalPanel::slamPoseCallback(const geometry_msgs::PoseStamped::ConstPtr& msg)
+void DDNavGoalPanel::slamPoseCallback(
+    const geometry_msgs::PoseStamped::ConstPtr& msg)
 {
   slam_altitude_->setText(QString::number(msg->pose.position.z, 'f', 2));
+}
+
+void DDNavGoalPanel::republishSetpoint() { posePublish(pose_); }
+
+void DDNavGoalPanel::cancelSetpoint()
+{
+  std_msgs::Header msg;
+  msg.stamp = ros::Time::now();
+  cancel_setpoint_pub_.publish(msg);
 }
 }
 
