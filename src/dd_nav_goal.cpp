@@ -8,6 +8,10 @@
 #include <QSlider>
 #include <QString>
 
+#include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/SetMode.h>
+
+
 namespace dd_nav_goal
 {
 DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
@@ -53,6 +57,12 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
       QString("color: %1").arg(QColor(Qt::red).name()));
   cancel_setpoint_->setDisabled(true);
 
+  arm_ = new QPushButton;
+  arm_->setText("Arm");
+  arm_->setStyleSheet(
+      QString("color: %1").arg(QColor(Qt::blue).name()));
+  arm_->setDisabled(false);
+
   px4_altitude_ = new QLabel;
 
   slam_altitude_ = new QLabel;
@@ -75,6 +85,7 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
   layout->addWidget(min_z_value_, 8, 2, 1, 2);
   layout->addWidget(cancel_setpoint_, 9, 1);
   layout->addWidget(republish_setpoint_, 9, 2);
+  layout->addWidget(arm_, 10, 1, 1, 2);
   setLayout(layout);
 
   // Next we make signal/slot connections.
@@ -92,12 +103,16 @@ DDNavGoalPanel::DDNavGoalPanel(QWidget* parent)
   connect(republish_setpoint_, SIGNAL(released()), this,
           SLOT(republishSetpoint()));
   connect(cancel_setpoint_, SIGNAL(released()), this, SLOT(cancelSetpoint()));
+  connect(arm_, SIGNAL(released()), this, SLOT(arm()));
 
   px4_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
       "/mavros/local_position/pose", 1, &DDNavGoalPanel::px4PoseCallback, this);
 
   slam_pose_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>(
       "/mavros/vision_pose/pose", 1, &DDNavGoalPanel::slamPoseCallback, this);
+
+  arm_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
+  offboard_client_ = nh_.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
 }
 
 void DDNavGoalPanel::load(const rviz::Config& config)
@@ -297,6 +312,28 @@ void DDNavGoalPanel::cancelSetpoint()
   std_msgs::Header msg;
   msg.stamp = ros::Time::now();
   cancel_setpoint_pub_.publish(msg);
+}
+
+void DDNavGoalPanel::arm()
+{
+  mavros_msgs::CommandBool arm;
+  arm.request.value = true;
+
+  if (!arm_client_.call(arm))
+  {
+    // ROS_ERROR("%s", arm.response.success.c_str());
+    return;
+  }
+
+  mavros_msgs::SetMode mode;
+  mode.request.base_mode = 0;
+  mode.request.custom_mode = "offboard";
+
+  if (!offboard_client_.call(mode))
+  {
+    // ROS_ERROR("%s", mode.response.status_message.c_str());
+    return;
+  }
 }
 }
 

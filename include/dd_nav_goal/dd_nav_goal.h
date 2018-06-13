@@ -61,6 +61,8 @@ protected Q_SLOTS:
 
   void cancelSetpoint();
 
+  void arm();
+
 protected:
   QGridLayout* layout;
 
@@ -79,6 +81,7 @@ protected:
 
   QPushButton* republish_setpoint_;
   QPushButton* cancel_setpoint_;
+  QPushButton* arm_;
   
   QLabel* px4_altitude_;
   QLabel* slam_altitude_;
@@ -95,6 +98,9 @@ protected:
 
   ros::Publisher nav_goal_3d_pub_;
   ros::Publisher cancel_setpoint_pub_;
+
+  ros::ServiceClient arm_client_;
+  ros::ServiceClient offboard_client_;
 };
 }
 
